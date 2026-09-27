@@ -20,12 +20,14 @@ import javax.net.ssl.HttpsURLConnection
 class OpenRouterClient(
     private val keyManager: SecureKeyManager,
     private var modelOverride: String? = null,
-    private var systemPromptOverride: String? = null
+    private var systemPromptOverride: String? = null,
+    private var baseUrlOverride: String? = null,
+    private var apiKeyOverride: String? = null
 ) {
 
     companion object {
         private const val TAG = "OpenRouterClient"
-        private const val BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
+        private const val DEFAULT_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
         private const val TIMEOUT_MS = 30000
         private const val MAX_TOKENS = 4096
         private const val TEMPERATURE = 0.3f
@@ -61,6 +63,10 @@ class OpenRouterClient(
 
     private var currentModel: String = modelOverride ?: DEFAULT_MODEL
     private var currentSystemPrompt: String = systemPromptOverride ?: SystemPrompts.CLOUD_DEFAULT
+    private var baseUrl: String = run {
+        val override = baseUrlOverride
+        if (override.isNullOrBlank()) DEFAULT_BASE_URL else override.trimEnd('/')
+    }
     
     // Chat session for context
     val chatSession = ChatSession()
@@ -88,7 +94,7 @@ class OpenRouterClient(
         userQuery: String,
         imageBase64: String? = null
     ): Flow<String> = flow {
-        val apiKey = keyManager.getOpenRouterApiKey()
+        val apiKey = apiKeyOverride ?: keyManager.getOpenRouterApiKey()
         if (apiKey.isNullOrBlank()) {
             emit("[API key not configured. Add your key in Settings.]")
             return@flow
@@ -168,7 +174,7 @@ class OpenRouterClient(
         enhancedQuery: String,
         imageBase64: String? = null
     ): Flow<String> = flow {
-        val apiKey = keyManager.getOpenRouterApiKey()
+        val apiKey = apiKeyOverride ?: keyManager.getOpenRouterApiKey()
         if (apiKey.isNullOrBlank()) {
             emit("[API key not configured. Add your key in Settings.]")
             return@flow
@@ -701,9 +707,11 @@ class OpenRouterClient(
         }
     }
 
-    private fun createConnection(apiKey: String): HttpsURLConnection {
-        val url = URL(BASE_URL)
-        return (url.openConnection() as HttpsURLConnection).apply {
+    private fun createConnection(apiKey: String): java.net.HttpURLConnection {
+        val endpoint = if (baseUrl.endsWith("/chat/completions")) baseUrl
+                       else baseUrl.trimEnd('/') + "/chat/completions"
+        val url = URL(endpoint)
+        return (url.openConnection() as java.net.HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = TIMEOUT_MS
             readTimeout = TIMEOUT_MS * 2
@@ -795,6 +803,12 @@ class OpenRouterClient(
     }
 
     fun rotateFallbackModel() {
+        // Self-hosted endpoints serve exactly one model — rotating to an OpenRouter
+        // model id would break every subsequent request.
+        if (baseUrlOverride != null && baseUrl != DEFAULT_BASE_URL) {
+            Log.d(TAG, "Custom endpoint: keeping model $currentModel (no fallback rotation)")
+            return
+        }
         val currentIndex = FALLBACK_MODELS.indexOf(currentModel)
         currentModel = if (currentIndex < 0 || currentIndex >= FALLBACK_MODELS.size - 1) {
             FALLBACK_MODELS.first()

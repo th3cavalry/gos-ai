@@ -90,7 +90,10 @@ fun SettingsScreen(
     var showSearchEngineDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showSecondaryLanguageDialog by remember { mutableStateOf(false) }
+    var showHermesBaseUrlDialog by remember { mutableStateOf(false) }
+    var showHermesApiKeyDialog by remember { mutableStateOf(false) }
     var hasApiKey by remember { mutableStateOf(app.secureKeyManager.hasOpenRouterApiKey()) }
+    var hasHermesKey by remember { mutableStateOf(app.secureKeyManager.hasHermesApiKey()) }
     var hasBraveApiKey by remember { mutableStateOf(app.secureKeyManager.hasBraveApiKey()) }
     var hasExaApiKey by remember { mutableStateOf(app.secureKeyManager.hasExaApiKey()) }
     var hasLangSearchApiKey by remember { mutableStateOf(app.secureKeyManager.hasLangSearchApiKey()) }
@@ -184,6 +187,7 @@ fun SettingsScreen(
 
                 val providerName = when (apiProvider) {
                     SettingsManager.PROVIDER_LOCAL -> "Local AI (Offline)"
+                    SettingsManager.PROVIDER_HERMES -> "Hermes (Self-hosted)"
                     else -> "OpenRouter"
                 }
 
@@ -205,6 +209,7 @@ fun SettingsScreen(
                             Column {
                                 listOf(
                                     Triple(SettingsManager.PROVIDER_OPENROUTER, "OpenRouter", "Cloud AI via API key"),
+                                    Triple(SettingsManager.PROVIDER_HERMES, "Hermes (Self-hosted)", "Self-hosted OpenAI-compatible endpoint"),
                                     Triple(SettingsManager.PROVIDER_LOCAL, "Local AI (Offline)", "Runs on device, no internet needed")
                                 ).forEach { (provider, name, description) ->
                                     Row(
@@ -250,6 +255,21 @@ fun SettingsScreen(
                         title = "OpenRouter API Key",
                         subtitle = if (hasApiKey) "Configured ✓" else "Not configured",
                         onClick = { showApiKeyDialog = true }
+                    )
+                }
+
+                if (apiProvider == SettingsManager.PROVIDER_HERMES) {
+                    SettingsItem(
+                        icon = Icons.Default.Language,
+                        title = "Hermes Base URL",
+                        subtitle = if (settingsManager.hermesBaseUrl.isNotBlank()) settingsManager.hermesBaseUrl else "Not configured",
+                        onClick = { showHermesBaseUrlDialog = true }
+                    )
+                    SettingsItem(
+                        icon = Icons.Default.Key,
+                        title = "Hermes API Key",
+                        subtitle = if (hasHermesKey) "Configured ✓" else "Not configured",
+                        onClick = { showHermesApiKeyDialog = true }
                     )
                 }
             }
@@ -966,6 +986,72 @@ fun SettingsScreen(
                 showLangSearchKeyDialog = false
             },
             onDismiss = { showLangSearchKeyDialog = false }
+        )
+    }
+
+    if (showHermesBaseUrlDialog) {
+        val hermesBaseUrl = remember { mutableStateOf(settingsManager.hermesBaseUrl) }
+        AlertDialog(
+            onDismissRequest = { showHermesBaseUrlDialog = false },
+            title = { Text("Hermes Base URL") },
+            text = {
+                TextField(
+                    value = hermesBaseUrl.value,
+                    onValueChange = { hermesBaseUrl.value = it },
+                    label = { Text("Base URL") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    settingsManager.hermesBaseUrl = hermesBaseUrl.value
+                    showHermesBaseUrlDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showHermesBaseUrlDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showHermesApiKeyDialog) {
+        var hermesKey by remember { mutableStateOf("") }
+        var showKey by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { showHermesApiKeyDialog = false },
+            title = { Text("Hermes API Key") },
+            text = {
+                Column {
+                    Text("Token from hermes_api_key.txt on your server",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = hermesKey,
+                        onValueChange = { hermesKey = it },
+                        label = { Text("API Key") },
+                        singleLine = true,
+                        visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showKey = !showKey }) {
+                                Icon(if (showKey) Icons.Default.VisibilityOff else Icons.Default.Visibility, "Toggle")
+                            }
+                        }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (hermesKey.isNotBlank()) {
+                        app.secureKeyManager.setHermesApiKey(hermesKey.trim())
+                        hasHermesKey = true
+                    }
+                    showHermesApiKeyDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showHermesApiKeyDialog = false }) { Text("Cancel") }
+            }
         )
     }
 
