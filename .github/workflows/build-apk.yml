@@ -15,6 +15,14 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+      - name: Generate gradle.properties (gitignored upstream)
+        run: |
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          kotlin.code.style=official
+          EOF
       - name: Assemble debug APK
         run: ./gradlew assembleDebug --no-daemon -x lint
       - uses: actions/upload-artifact@v4
