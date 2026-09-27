@@ -1439,6 +1439,7 @@ class AssistantService : Service() {
         }
         
         // Reload OpenRouter client with updated settings
+        val secureKeys = (application as AssistantApplication).secureKeyManager
         val openRouterBaseUrl = if (settingsManager.apiProvider == SettingsManager.PROVIDER_HERMES) {
             settingsManager.hermesBaseUrl
         } else {
@@ -1446,12 +1447,12 @@ class AssistantService : Service() {
         }
         
         val openRouterApiKey = when (settingsManager.apiProvider) {
-            SettingsManager.PROVIDER_HERMES -> app.secureKeyManager.getHermesApiKey() ?: ""
-            else -> app.secureKeyManager.getOpenRouterApiKey()
+            SettingsManager.PROVIDER_HERMES -> secureKeys.getHermesApiKey() ?: ""
+            else -> secureKeys.getOpenRouterApiKey()
         }
         
         openRouterClient = OpenRouterClient(
-            app.secureKeyManager,
+            secureKeys,
             baseUrlOverride = openRouterBaseUrl,
             apiKeyOverride = openRouterApiKey
         ).apply {

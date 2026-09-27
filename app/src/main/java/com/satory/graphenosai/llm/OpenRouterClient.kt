@@ -63,8 +63,10 @@ class OpenRouterClient(
 
     private var currentModel: String = modelOverride ?: DEFAULT_MODEL
     private var currentSystemPrompt: String = systemPromptOverride ?: SystemPrompts.CLOUD_DEFAULT
-    private var baseUrl: String =
-        if (baseUrlOverride.isNullOrBlank()) DEFAULT_BASE_URL else baseUrlOverride.trimEnd('/')
+    private var baseUrl: String = run {
+        val override = baseUrlOverride
+        if (override.isNullOrBlank()) DEFAULT_BASE_URL else override.trimEnd('/')
+    }
     
     // Chat session for context
     val chatSession = ChatSession()
