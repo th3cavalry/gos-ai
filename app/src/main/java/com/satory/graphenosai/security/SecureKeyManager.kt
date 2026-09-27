@@ -28,6 +28,7 @@ class SecureKeyManager(private val context: Context) {
         private const val PREFS_NAME = "assistant_secure_prefs"
         private const val PREF_OPENROUTER_KEY = "openrouter_api_key"
         private const val PREF_GROQ_KEY = "groq_api_key"
+        private const val PREF_HERMES_KEY = "hermes_api_key"
 
         private const val PREF_TOKEN_REFRESH_TIME = "token_refresh_time"
         private const val PREF_BRAVE_API_KEY = "brave_api_key"
@@ -190,6 +191,43 @@ class SecureKeyManager(private val context: Context) {
      */
     fun clearGroqApiKey() {
         prefs.edit().remove(PREF_GROQ_KEY).apply()
+    }
+
+    /**
+     * Store Hermes API key securely.
+     */
+    fun setHermesApiKey(apiKey: String) {
+        val encrypted = encrypt(apiKey)
+        prefs.edit().putString(PREF_HERMES_KEY, encrypted).apply()
+        Log.i(TAG, "Hermes API key stored securely")
+    }
+
+    /**
+     * Retrieve Hermes API key.
+     * @return Decrypted API key or null if not set
+     */
+    fun getHermesApiKey(): String? {
+        val encrypted = prefs.getString(PREF_HERMES_KEY, null) ?: return null
+        return try {
+            decrypt(encrypted)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to decrypt Hermes API key", e)
+            null
+        }
+    }
+
+    /**
+     * Check if Hermes API key is configured.
+     */
+    fun hasHermesApiKey(): Boolean {
+        return prefs.contains(PREF_HERMES_KEY)
+    }
+
+    /**
+     * Clear stored Hermes API key.
+     */
+    fun clearHermesApiKey() {
+        prefs.edit().remove(PREF_HERMES_KEY).apply()
     }
 
     // ========== Brave Search API Key Management ==========

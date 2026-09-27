@@ -206,8 +206,25 @@ class AssistantService : Service() {
             }
         }
         
-        openRouterClient = OpenRouterClient(app.secureKeyManager).apply {
-            setModel(settingsManager.getEffectiveModel())
+        // Initialize OpenRouter client with proper configuration for Hermes
+        val openRouterBaseUrl = if (settingsManager.apiProvider == SettingsManager.PROVIDER_HERMES) {
+            settingsManager.hermesBaseUrl
+        } else {
+            null
+        }
+        
+        val openRouterApiKey = when (settingsManager.apiProvider) {
+            SettingsManager.PROVIDER_HERMES -> app.secureKeyManager.getHermesApiKey() ?: ""
+            else -> app.secureKeyManager.getOpenRouterApiKey()
+        }
+        
+        openRouterClient = OpenRouterClient(
+            app.secureKeyManager,
+            baseUrlOverride = openRouterBaseUrl,
+            apiKeyOverride = openRouterApiKey
+        ).apply {
+            setModel(if (settingsManager.apiProvider == SettingsManager.PROVIDER_HERMES)
+                settingsManager.hermesModel else settingsManager.getEffectiveModel())
             setSystemPrompt(settingsManager.systemPrompt)
         }
         
@@ -1419,6 +1436,28 @@ class AssistantService : Service() {
         if (ttsManager.getCurrentLanguageTag() != savedTtsLang) {
             Log.i(TAG, "Switching TTS language to: $savedTtsLang")
             ttsManager.setLanguage(savedTtsLang)
+        }
+        
+        // Reload OpenRouter client with updated settings
+        val openRouterBaseUrl = if (settingsManager.apiProvider == SettingsManager.PROVIDER_HERMES) {
+            settingsManager.hermesBaseUrl
+        } else {
+            null
+        }
+        
+        val openRouterApiKey = when (settingsManager.apiProvider) {
+            SettingsManager.PROVIDER_HERMES -> app.secureKeyManager.getHermesApiKey() ?: ""
+            else -> app.secureKeyManager.getOpenRouterApiKey()
+        }
+        
+        openRouterClient = OpenRouterClient(
+            app.secureKeyManager,
+            baseUrlOverride = openRouterBaseUrl,
+            apiKeyOverride = openRouterApiKey
+        ).apply {
+            setModel(if (settingsManager.apiProvider == SettingsManager.PROVIDER_HERMES)
+                settingsManager.hermesModel else settingsManager.getEffectiveModel())
+            setSystemPrompt(settingsManager.systemPrompt)
         }
     }
 

@@ -36,6 +36,7 @@ class SettingsManager(context: Context) {
         
         // API Providers
         const val PROVIDER_OPENROUTER = "openrouter"
+        const val PROVIDER_HERMES = "hermes"  // Self-hosted OpenAI-compatible
         const val PROVIDER_LOCAL = "local"  // Local llama.cpp models
         
         // Search Engines
@@ -151,6 +152,15 @@ class SettingsManager(context: Context) {
         get() = prefs.getString(KEY_LOCAL_MODEL_ID, DEFAULT_LOCAL_MODEL) ?: DEFAULT_LOCAL_MODEL
         set(value) = prefs.edit().putString(KEY_LOCAL_MODEL_ID, value).apply()
     
+    // Hermes settings
+    var hermesBaseUrl: String
+        get() = prefs.getString("hermes_base_url", "http://100.93.86.59:8642/v1") ?: "http://100.93.86.59:8642/v1"
+        set(value) = prefs.edit().putString("hermes_base_url", value).apply()
+    
+    var hermesModel: String
+        get() = prefs.getString("hermes_model", "hermes-agent") ?: "hermes-agent"
+        set(value) = prefs.edit().putString("hermes_model", value).apply()
+
     /**
      * Check if current provider is local (offline)
      */
