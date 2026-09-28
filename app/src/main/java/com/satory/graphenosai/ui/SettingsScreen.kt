@@ -1005,6 +1005,7 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = {
                     settingsManager.hermesBaseUrl = hermesBaseUrl.value
+                    assistantService?.reloadSettings()
                     showHermesBaseUrlDialog = false
                 }) { Text("Save") }
             },
@@ -1045,6 +1046,7 @@ fun SettingsScreen(
                     if (hermesKey.isNotBlank()) {
                         app.secureKeyManager.setHermesApiKey(hermesKey.trim())
                         hasHermesKey = true
+                        assistantService?.reloadSettings()
                     }
                     showHermesApiKeyDialog = false
                 }) { Text("Save") }

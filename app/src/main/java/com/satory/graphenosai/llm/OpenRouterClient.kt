@@ -94,7 +94,7 @@ class OpenRouterClient(
         userQuery: String,
         imageBase64: String? = null
     ): Flow<String> = flow {
-        val apiKey = apiKeyOverride ?: keyManager.getOpenRouterApiKey()
+        val apiKey = effectiveApiKey()
         if (apiKey.isNullOrBlank()) {
             emit("[API key not configured. Add your key in Settings.]")
             return@flow
@@ -174,7 +174,7 @@ class OpenRouterClient(
         enhancedQuery: String,
         imageBase64: String? = null
     ): Flow<String> = flow {
-        val apiKey = apiKeyOverride ?: keyManager.getOpenRouterApiKey()
+        val apiKey = effectiveApiKey()
         if (apiKey.isNullOrBlank()) {
             emit("[API key not configured. Add your key in Settings.]")
             return@flow
@@ -273,7 +273,7 @@ class OpenRouterClient(
         enhancedQuery: String,
         imageBase64: String? = null
     ): Flow<String> = flow {
-        val apiKey = keyManager.getOpenRouterApiKey()
+        val apiKey = effectiveApiKey()
         if (apiKey.isNullOrBlank()) {
             emit("[API key not configured. Add your key in Settings.]")
             return@flow
@@ -371,7 +371,7 @@ class OpenRouterClient(
         userQuery: String,
         imageBase64: String? = null
     ): Flow<String> = flow {
-        val apiKey = keyManager.getOpenRouterApiKey()
+        val apiKey = effectiveApiKey()
         if (apiKey.isNullOrBlank()) {
             emit("[API key not configured. Add your key in Settings.]")
             return@flow
@@ -458,7 +458,7 @@ class OpenRouterClient(
         tools: JSONArray? = null,
         imageBase64: String? = null
     ): Flow<StreamEvent> = flow {
-        val apiKey = keyManager.getOpenRouterApiKey()
+        val apiKey = effectiveApiKey()
         if (apiKey.isNullOrBlank()) {
             emit(StreamEvent.Content("[API key not configured. Add your key in Settings.]"))
             return@flow
@@ -586,7 +586,7 @@ class OpenRouterClient(
         messages: JSONArray,
         tools: JSONArray? = null
     ): Flow<String> = flow {
-        val apiKey = keyManager.getOpenRouterApiKey()
+        val apiKey = effectiveApiKey()
         if (apiKey.isNullOrBlank()) {
             emit("[API key not configured. Add your key in Settings.]")
             return@flow
@@ -655,7 +655,7 @@ class OpenRouterClient(
     ): String = withContext(Dispatchers.IO) {
         val effectiveSystemPrompt = systemPrompt ?: currentSystemPrompt
         
-        val apiKey = keyManager.getOpenRouterApiKey()
+        val apiKey = effectiveApiKey()
             ?: throw IllegalStateException("API key not configured")
 
         val messages = buildMessages(effectiveSystemPrompt, context, userQuery)
@@ -705,6 +705,20 @@ class OpenRouterClient(
             }
             acc.put("function", fnAcc)
         }
+    }
+
+    /**
+     * Single source of truth for which API key to use.
+     * - Non-blank override (e.g. Hermes key) wins.
+     * - Custom/self-hosted base URL: NEVER fall back to the OpenRouter key
+     *   (would leak it to a third-party endpoint).
+     * - Default base URL: original OpenRouter behavior.
+     */
+    private fun effectiveApiKey(): String? {
+        val override = apiKeyOverride
+        if (!override.isNullOrBlank()) return override
+        if (baseUrlOverride != null) return null
+        return keyManager.getOpenRouterApiKey()
     }
 
     private fun createConnection(apiKey: String): java.net.HttpURLConnection {

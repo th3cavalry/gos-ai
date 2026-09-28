@@ -240,7 +240,14 @@ fun MainScreen(
     val settingsManager = remember { SettingsManager(context) }
     
     var hasApiKey by remember { mutableStateOf(app.secureKeyManager.hasOpenRouterApiKey()) }
-    val apiKeyDescription = if (hasApiKey) "OpenRouter configured" else "OpenRouter not configured"
+    val isHermesProvider = settingsManager.apiProvider == SettingsManager.PROVIDER_HERMES
+    val keyConfigured = if (isHermesProvider) app.secureKeyManager.hasHermesApiKey() else hasApiKey
+    val apiKeyDescription = when {
+        isHermesProvider && keyConfigured -> "Hermes configured"
+        isHermesProvider -> "Hermes API key needed"
+        hasApiKey -> "OpenRouter configured"
+        else -> "OpenRouter not configured"
+    }
     val isAccessibilityEnabled = AssistantAccessibilityService.isServiceRunning
     
     val isDefaultAssistant = remember {
@@ -320,7 +327,7 @@ fun MainScreen(
         SetupProgressCard(
             title = "API Key",
             subtitle = apiKeyDescription,
-            isComplete = hasApiKey,
+            isComplete = keyConfigured,
             icon = Icons.Filled.Key,
             action = "Configure",
             onAction = onOpenApiKeySettings
@@ -427,7 +434,7 @@ fun MainScreen(
             }
         }
 
-        if (!hasApiKey) {
+        if (!keyConfigured && !isHermesProvider) {
             ApiKeyInputCard(
                 onApiKeySaved = { hasApiKey = true }
             )
