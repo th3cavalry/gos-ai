@@ -43,6 +43,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.satory.graphenosai.llm.LocalModelManager
+import com.satory.graphenosai.llm.SelfHostedModels
+import com.satory.graphenosai.AssistantApplication
 import com.satory.graphenosai.service.AssistantService
 import com.satory.graphenosai.service.AssistantState
 import com.satory.graphenosai.ui.theme.AiintegratedintoandroidTheme
@@ -655,13 +657,19 @@ fun FullChatScreen(
     var showModelDialog by remember { mutableStateOf(false) }
     var currentModel by remember {
         mutableStateOf(
-            if (service.settingsManager.apiProvider == SettingsManager.PROVIDER_LOCAL)
-                service.settingsManager.localModelId
-            else service.settingsManager.getEffectiveModel()
+            when (service.settingsManager.apiProvider) {
+                SettingsManager.PROVIDER_LOCAL -> service.settingsManager.localModelId
+                SettingsManager.PROVIDER_HERMES -> service.settingsManager.hermesModel
+                else -> service.settingsManager.getEffectiveModel()
+            }
         )
     }
     val isLocalProvider = service.settingsManager.apiProvider == SettingsManager.PROVIDER_LOCAL
-    val currentModelInfo = if (isLocalProvider) null else {
+    val isSelfHostedProvider = service.settingsManager.apiProvider == SettingsManager.PROVIDER_HERMES
+    // Model discovery for self-hosted servers: populated when the picker opens.
+    var selfHostedModels by remember { mutableStateOf<List<String>?>(null) }
+    var selfHostedModelsLoading by remember { mutableStateOf(false) }
+    val currentModelInfo = if (isLocalProvider || isSelfHostedProvider) null else {
         SettingsManager.AVAILABLE_MODELS.find { it.id == currentModel }
     }
     val currentModelDisplayName = if (isLocalProvider) {
@@ -671,6 +679,7 @@ fun FullChatScreen(
     }
     val supportsVision = when {
         isLocalProvider -> false
+        isSelfHostedProvider -> false
         else -> service.isVisionCapable()
     }
     val isGenerating = state is AssistantState.Processing ||
@@ -731,6 +740,20 @@ fun FullChatScreen(
         (state is AssistantState.Listening || state is AssistantState.Processing || state is AssistantState.Searching)) {
         transcription
     } else null
+
+    if (showModelDialog && isSelfHostedProvider && selfHostedModels == null && !selfHostedModelsLoading) {
+        selfHostedModelsLoading = true
+        val baseUrl = service.settingsManager.hermesBaseUrl
+        val apiKey = (context.applicationContext as AssistantApplication)
+            .secureKeyManager.getHermesApiKey()
+        scope.launch {
+            val models = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                SelfHostedModels.fetch(baseUrl, apiKey)
+            }
+            selfHostedModels = models
+            selfHostedModelsLoading = false
+        }
+    }
 
     if (showModelDialog) {
         if (isLocalProvider) {
@@ -795,6 +818,119 @@ fun FullChatScreen(
                     TextButton(onClick = { showModelDialog = false }) { Text("Cancel") }
                 }
             )
+        } else if (isSelfHostedProvider) {
+            var showCustomInput by remember { mutableStateOf(false) }
+            if (showCustomInput) {
+                var customModelText by remember { mutableStateOf(service.settingsManager.hermesModel) }
+                AlertDialog(
+                    onDismissRequest = { showCustomInput = false },
+                    title = { Text("Model ID") },
+                    text = {
+                        Column {
+                            Text("Enter a model ID served by your server",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = customModelText,
+                                onValueChange = { customModelText = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Model ID") },
+                                singleLine = true
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            val trimmed = customModelText.trim()
+                            if (trimmed.isNotBlank()) {
+                                currentModel = trimmed
+                                service.settingsManager.hermesModel = trimmed
+                                service.reloadSettings()
+                            }
+                            showCustomInput = false
+                            showModelDialog = false
+                        }) { Text("Save") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showCustomInput = false }) { Text("Cancel") }
+                    }
+                )
+            } else if (selfHostedModelsLoading) {
+                AlertDialog(
+                    onDismissRequest = { showModelDialog = false },
+                    title = { Text("Select Model") },
+                    text = { Text("Querying your server for models…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    confirmButton = {
+                        TextButton(onClick = { showModelDialog = false }) { Text("Cancel") }
+                    }
+                )
+            } else {
+                val serverModels = selfHostedModels ?: emptyList()
+                AlertDialog(
+                    onDismissRequest = { showModelDialog = false },
+                    title = { Text("Select Model") },
+                    text = {
+                        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                            if (serverModels.isEmpty()) {
+                                Text("No models returned by your server (it may not expose /models).\nYou can still type the model ID manually.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            } else {
+                                serverModels.forEach { modelId ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                currentModel = modelId
+                                                service.settingsManager.hermesModel = modelId
+                                                service.reloadSettings()
+                                                showModelDialog = false
+                                            }
+                                            .padding(vertical = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        RadioButton(
+                                            selected = currentModel == modelId,
+                                            onClick = {
+                                                currentModel = modelId
+                                                service.settingsManager.hermesModel = modelId
+                                                service.reloadSettings()
+                                                showModelDialog = false
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Text(modelId, style = MaterialTheme.typography.bodyLarge)
+                                    }
+                                }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable { showCustomInput = true }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("Enter model ID manually…",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = {
+                                selfHostedModels = null  // force re-fetch on reopen
+                            }) { Text("Refresh") }
+                            TextButton(onClick = { showModelDialog = false }) { Text("Cancel") }
+                        }
+                    }
+                )
+            }
         } else {
             var showCustomInput by remember { mutableStateOf(false) }
             val cloudModelList = SettingsManager.AVAILABLE_MODELS
