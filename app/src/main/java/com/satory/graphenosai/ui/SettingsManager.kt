@@ -133,7 +133,7 @@ class SettingsManager(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_AUTO_START_VOICE, value).apply()
     
     var apiProvider: String
-        get() = prefs.getString(KEY_API_PROVIDER, PROVIDER_OPENROUTER) ?: PROVIDER_OPENROUTER
+        get() = prefs.getString(KEY_API_PROVIDER, PROVIDER_HERMES) ?: PROVIDER_HERMES
         set(value) = prefs.edit().putString(KEY_API_PROVIDER, value).apply()
     
     var whisperProvider: String
@@ -165,6 +165,11 @@ class SettingsManager(context: Context) {
      * Check if current provider is local (offline)
      */
     fun isLocalProvider(): Boolean = apiProvider == PROVIDER_LOCAL
+    
+    /**
+     * Check if current provider is self-hosted (Hermes)
+     */
+    fun isSelfHostedProvider(): Boolean = apiProvider == PROVIDER_HERMES
     
     /**
      * Get the effective model ID to use.

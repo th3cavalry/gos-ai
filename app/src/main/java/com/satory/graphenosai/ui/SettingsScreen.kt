@@ -118,12 +118,15 @@ fun SettingsScreen(
     }
 
     val providerLabel = when (apiProvider) {
-        SettingsManager.PROVIDER_LOCAL -> "Local AI"
+        SettingsManager.PROVIDER_LOCAL -> "On-device"
+        SettingsManager.PROVIDER_HERMES -> "Self-hosted"
         else -> "OpenRouter"
     }
     val selectedModelLabel = if (apiProvider == SettingsManager.PROVIDER_LOCAL) {
         LocalModelManager.AVAILABLE_MODELS
             .find { it.id == settingsManager.localModelId }?.name ?: "Select local model"
+    } else if (apiProvider == SettingsManager.PROVIDER_HERMES) {
+        settingsManager.hermesModel
     } else {
         if (customModelId.isNotBlank()) customModelId
         else SettingsManager.AVAILABLE_MODELS.find { it.id == selectedModel }?.name ?: selectedModel
@@ -141,6 +144,7 @@ fun SettingsScreen(
     }
     val keyStatus = when (apiProvider) {
         SettingsManager.PROVIDER_LOCAL -> "Offline"
+        SettingsManager.PROVIDER_HERMES -> if (hasHermesKey) "API key saved" else "API key needed"
         else -> if (hasApiKey) "API key saved" else "API key needed"
     }
 
@@ -186,9 +190,9 @@ fun SettingsScreen(
                 var showProviderDialog by remember { mutableStateOf(false) }
 
                 val providerName = when (apiProvider) {
-                    SettingsManager.PROVIDER_LOCAL -> "Local AI (Offline)"
-                    SettingsManager.PROVIDER_HERMES -> "Hermes (Self-hosted)"
-                    else -> "OpenRouter"
+                    SettingsManager.PROVIDER_LOCAL -> "On-device (offline)"
+                    SettingsManager.PROVIDER_HERMES -> "Self-hosted endpoint"
+                    else -> "OpenRouter (advanced)"
                 }
 
                 SettingsItem(
@@ -208,9 +212,9 @@ fun SettingsScreen(
                         text = {
                             Column {
                                 listOf(
-                                    Triple(SettingsManager.PROVIDER_OPENROUTER, "OpenRouter", "Cloud AI via API key"),
-                                    Triple(SettingsManager.PROVIDER_HERMES, "Hermes (Self-hosted)", "Self-hosted OpenAI-compatible endpoint"),
-                                    Triple(SettingsManager.PROVIDER_LOCAL, "Local AI (Offline)", "Runs on device, no internet needed")
+                                    Triple(SettingsManager.PROVIDER_HERMES, "Self-hosted endpoint", "Your own AI server — set URL and API key"),
+                                    Triple(SettingsManager.PROVIDER_LOCAL, "On-device (offline)", "Runs a model on this phone, no internet needed"),
+                                    Triple(SettingsManager.PROVIDER_OPENROUTER, "OpenRouter (advanced)", "Hosted cloud fallback — for testing only")
                                 ).forEach { (provider, name, description) ->
                                     Row(
                                         modifier = Modifier.fillMaxWidth()
@@ -261,13 +265,13 @@ fun SettingsScreen(
                 if (apiProvider == SettingsManager.PROVIDER_HERMES) {
                     SettingsItem(
                         icon = Icons.Default.Language,
-                        title = "Hermes Base URL",
+                        title = "Server URL",
                         subtitle = if (settingsManager.hermesBaseUrl.isNotBlank()) settingsManager.hermesBaseUrl else "Not configured",
                         onClick = { showHermesBaseUrlDialog = true }
                     )
                     SettingsItem(
                         icon = Icons.Default.Key,
-                        title = "Hermes API Key",
+                        title = "API Key",
                         subtitle = if (hasHermesKey) "Configured ✓" else "Not configured",
                         onClick = { showHermesApiKeyDialog = true }
                     )
@@ -283,6 +287,7 @@ fun SettingsScreen(
 
             if (apiProvider != SettingsManager.PROVIDER_LOCAL) {
                 SettingsSection(title = "Web Search") {
+                    // Search remains available in Hermes mode: the agent's tool loop uses it.
                     val searchEngineName = when (searchEngine) {
                         SettingsManager.SEARCH_BRAVE -> "Brave Search"
                         SettingsManager.SEARCH_EXA -> "Exa AI"
@@ -338,7 +343,7 @@ fun SettingsScreen(
                 }
             }
 
-            if (apiProvider != SettingsManager.PROVIDER_LOCAL) {
+            if (apiProvider != SettingsManager.PROVIDER_LOCAL && apiProvider != SettingsManager.PROVIDER_HERMES) {
                 SettingsSection(title = "AI Model") {
                     val modelName = SettingsManager.AVAILABLE_MODELS
                         .find { it.id == selectedModel }?.name ?: selectedModel
