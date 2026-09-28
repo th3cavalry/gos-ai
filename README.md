@@ -17,8 +17,9 @@ A privacy-focused AI assistant built as an alternative to Google Gemini on Graph
 
 ## Project Direction
 
-This fork exists because the upstream project has been unresponsive since August 2026
-(open release-packaging bug, unanswered collaboration overtures). Goals, in priority order:
+This fork exists because the upstream project has been quiet since August 2026 (open
+release-packaging bug since July; a collaboration inquiry posted 2026-09-28 awaits reply —
+see mx37/gos-ai#12). Goals, in priority order:
 
 1. **Self-hosted endpoint is the default provider** — set your server's URL + API key and
    the app talks only to it. No model catalogs, no fallback cloud, no telemetry-shaped
