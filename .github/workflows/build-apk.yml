@@ -3,6 +3,7 @@ name: Build APK
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -23,6 +24,8 @@ jobs:
           android.nonTransitiveRClass=true
           kotlin.code.style=official
           EOF
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon
       - name: Assemble debug APK
         run: ./gradlew assembleDebug --no-daemon -x lint
       - uses: actions/upload-artifact@v4

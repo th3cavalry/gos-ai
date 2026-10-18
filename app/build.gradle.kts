@@ -2,6 +2,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.kover)
+    alias(libs.plugins.dokka)
 }
 
 val releaseSigningPropertyNames = listOf(
@@ -169,7 +172,21 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
+// Report-only for now: the existing code has many findings, so failing the build would block everything.
+detekt {
+    buildUponDefaultConfig = true
+    ignoreFailures = true
+}
+
+apply(from = rootProject.file("gradle/analysis.gradle.kts"))
+
 tasks.register("checkLlamaPrebuilt") {
+    // Only guard real release artifacts: dokkaHtml configures the release variant without packaging it.
+    val releasePackaging = setOf("packageRelease", "packageReleaseBundle")
+    onlyIf {
+        gradle.taskGraph.allTasks.any { it.name in releasePackaging } ||
+            gradle.startParameter.taskNames.any { it.endsWith("checkLlamaPrebuilt") }
+    }
     doLast {
         val prebuiltDir = file("src/main/cpp/llama/prebuilt/arm64-v8a")
         val required = listOf(

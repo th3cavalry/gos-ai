@@ -73,6 +73,24 @@ For **local AI**, native libraries are required:
 
 See [docs/LOCAL_AI_SETUP.md](docs/LOCAL_AI_SETUP.md).
 
+## Code Analysis
+
+One command regenerates all reports (needs [Graphviz](https://graphviz.org/) besides the Android toolchain: `brew install graphviz` or `apt install graphviz`):
+
+```bash
+./gradlew analysisReport
+open app/build/reports/index.html
+```
+
+| Report | Tool |
+|--------|------|
+| Package and class dependency graphs | jdeps (ships with the JDK) + Graphviz |
+| Complexity and code smells | Detekt (report only, never fails the build) |
+| Test coverage | Kover |
+| API documentation | Dokka |
+
+The graphs and API docs are byte-identical across runs, so you can compare them before and after a change. The coverage report also contains a timestamp, and Detekt may list its findings in a different order.
+
 ## Tested On
 
 - **Android 16** (Pixel 9 Pro, GrapheneOS)
